@@ -4,11 +4,12 @@ import pandas as pd
 import os
 import psycopg2
 import argparse
+import json
 
 from wyze_sdk import Client
 from wyze_sdk.errors import WyzeApiError
 from datetime import datetime, timezone
-from botocore.exceptions import ClientError
+from botocore.exceptions import NoCredentialsError
 
 """
     This function writes the temperature data to a PostgreSQL database.
@@ -47,17 +48,25 @@ def write_to_postgresql(postgres_cxn_str, df_results):
     This function writes the temperature data to an AWS S3 Bucket.
 """
 def write_to_s3_bucket(aws_access_key, aws_secret_access_key, bucket_name, df_results):
-    
+
+    current_time = datetime.now().strftime('%Y%m%d_%H%M')   # Get the current date and time
+    file_name = f'temperature_data_{current_time}.json'     # Create the file name for the temperature data
+
+    # Write the DataFrame to a JSON file
+    json_data = df_results.to_json(orient='records')
+
+    # Upload the JSON file to S3
     try:
-        # Upload the temperature data to S3
-        s3 = boto3.client('s3', aws_access_key_id=aws_access_key, aws_secret_access_key=aws_secret_access_key)
-        s3.put_object(Bucket=bucket_name, Key='temperature_data.txt', Body=df_results)
-        return 'Successly wrote to AWS S3 Bucket.'
+        s3 = boto3.resource('s3', aws_access_key_id=aws_access_key, aws_secret_access_key=aws_secret_access_key)
+        json_string = json.dumps(json_data)
 
-    except ClientError as e:
-        print(f"Error: Could not write to AWS S3 Bucket: {e}")
-        return None;
+        # Write the string to the S3 bucket
+        s3.Object(bucket_name, file_name).put(Body=json_string)
 
+        print("File uploaded successfully to S3")
+    except NoCredentialsError:
+        print("AWS credentials not available")
+        exit() # Exit the program
 """
     This function writes the temperature data to an Azure Blob Storage.
 """
@@ -177,5 +186,3 @@ if __name__ == "__main__":
     print(f'The output-type is: {storage}')
 
     main(storage)
-
-    ## python script.py --output CSV

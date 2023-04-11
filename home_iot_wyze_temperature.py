@@ -23,7 +23,9 @@ def write_to_postgresql(postgres_cxn_str, df_results):
         cur = conn.cursor()
 
     except psycopg2.Error as e:
-        print("Error: Could not make connection to the Postgres database")
+        print("Error: Could not make connection to the Postgres database > {e}")
+        print("Connection String: {postgres_cxn_str}")
+        exit() # Exit the program
         
     try:
         # Insert the temperature data into the table
@@ -32,6 +34,7 @@ def write_to_postgresql(postgres_cxn_str, df_results):
 
     except psycopg2.Error as e:
         print(f"Error: Could not insert record into temperature table: {e}")
+        exit() # Exit the program
     
     #  Commit the changes to the database and close the connection
     cur.close()
@@ -91,8 +94,9 @@ def get_wyze_temperatures(client):
         # Get a list of all Room Sensors for Thermostat devices
         room_sensors = client.thermostats.get_sensors(device_mac=my_thermostat.mac, device_model='CO_EA1')
 
-        # Create a Pandas dataframe from temperature data
+        # create a new Pandas DataFrame with explicit column names and data types for the temperature data
         temperature_df = pd.DataFrame(columns=['sensor_name', 'device_id', 'mac_address', 'product_model', 'temperature', 'humidity', 'battery_level', 'is_online', 'create_dt'])
+        temperature_df = temperature_df.astype(dtype={'sensor_name': 'object', 'device_id': 'object', 'mac_address': 'object', 'product_model': 'object', 'temperature': 'float64', 'humidity': 'float64', 'battery_level': 'int64', 'is_online': 'bool', 'create_dt': 'datetime64'})
 
         # Loop through the temperature sensors and insert readings into the database
         for r in room_sensors:
@@ -106,20 +110,11 @@ def get_wyze_temperatures(client):
                 is_online = r.is_online # Get the online status
                 battery_level = int(r.battery.name.split('_')[1]) # Extract the integer value of the battery level
 
-                temperature_df = temperature_df.append(
-                    {
-                        'sensor_name': sensor_name, 
-                        'device_id': device_id,
-                        'mac_address': mac_address,
-                        'product_model': product_model,
-                        'temperature': temperature,
-                        'humidity': humidity,
-                        'battery_level': battery_level,
-                        'is_online': is_online,
-                        'create_dt': create_dt
-                    }
-                    , ignore_index=True
-                )
+                # Create a new row in the dataframe
+                new_row_df = pd.DataFrame([[sensor_name, device_id, mac_address, product_model, temperature, humidity, battery_level, is_online, create_dt]], columns=['sensor_name', 'device_id', 'mac_address', 'product_model', 'temperature', 'humidity', 'battery_level', 'is_online', 'create_dt'])
+                
+                # Append the new row to the dataframe
+                temperature_df = pd.concat([temperature_df, new_row_df], ignore_index=True)
 
     except WyzeApiError as e:
         print(e) # Print the error
@@ -182,3 +177,5 @@ if __name__ == "__main__":
     print(f'The output-type is: {storage}')
 
     main(storage)
+
+    ## python script.py --output CSV

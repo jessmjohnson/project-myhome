@@ -57,7 +57,7 @@ def write_to_postgresql(postgres_cxn_str, df_results):
     try:
         # Insert the temperature data into the table
         for index, row in df_results.iterrows():
-            cur.execute("INSERT INTO wyze_temperature (sensor_name, device_id, mac_address, product_model, temperature, humidity, battery_level, is_online, current_temperature, current_humidity, create_dt) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (row['sensor_name'], row['device_id'], row['mac_address'], row['product_model'], row['temperature'], row['humidity'], row['battery_level'], row['is_online'], row['current_temperature'], row['current_humidity'], row['create_dt']))
+            cur.execute("INSERT INTO wyze_temperature (sensor_name, device_id, mac_address, product_model, temperature, humidity, battery_level, is_online, zip_code, current_temperature, current_humidity, create_dt) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (row['sensor_name'], row['device_id'], row['mac_address'], row['product_model'], row['temperature'], row['humidity'], row['battery_level'], row['is_online'], row['zip_code'], row['current_temperature'], row['current_humidity'], row['create_dt']))
 
     except psycopg2.Error as e:
         print(f"Error: Could not insert record into temperature table: {e}")
@@ -177,10 +177,11 @@ def main(storage_option, zip_code):
     current_weather_dict = get_openweathermap(openweathermap_api_key, zip_code)
 
     # Add 'current_temperature' and 'current_humidity' columns to temperature_df
+    temperature_df['zip_code'] = zip_code
     temperature_df['current_temperature'] = current_weather_dict['temp_f']
     temperature_df['current_humidity'] = current_weather_dict['humidity']
 
-    if storage_option == 'AWS S3 Bucket':
+    if storage_option == 'AWS S3':
         AWS_ACCESS_KEY = os.environ.get('AWS_ACCESS_KEY')
         AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
         BUCKET_NAME = os.environ.get('BUCKET_NAME')

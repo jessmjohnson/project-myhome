@@ -11,6 +11,7 @@ from wyze_sdk import Client
 from wyze_sdk.errors import WyzeApiError
 from datetime import datetime, timezone
 from botocore.exceptions import NoCredentialsError
+from azure.storage.blob import BlobServiceClient
 
 
 """
@@ -93,11 +94,39 @@ def write_to_s3_bucket(aws_access_key, aws_secret_access_key, bucket_name, df_re
     except NoCredentialsError:
         print("AWS credentials not available")
         exit() # Exit the program
+
 """
     This function writes the temperature data to an Azure Blob Storage.
 """
-def write_to_azure_blob(df_results):
-    return 0;
+def write_to_azure_blob(df_results, abs_cxn_str, abs_container_name):
+
+    current_time = datetime.now().strftime('%Y%m%d_%H%M')   # Get the current date and time
+    file_name = f'temperature_data_{current_time}.json'     # Create the file name for the temperature data
+
+    try:
+        # Create a BlobServiceClient object using your connection string and access key
+        blob_service_client = BlobServiceClient.from_connection_string(abs_cxn_str)
+
+        # Create a new blob container with the given name if it doesn't exist
+        blob_container_client = blob_service_client.get_container_client(abs_container_name)
+        if not blob_container_client.exists():
+            blob_container_client.create_container()
+
+        # Convert your Pandas dataframe to a JSON string
+        temp_json = df_results.to_json(orient='records')
+
+        # Create a new BlobClient object for your JSON file
+        blob_client = blob_service_client.get_blob_client(container=abs_container_name, blob=file_name)
+
+        # Upload your JSON string to the Blob Storage container
+        blob_client.upload_blob(temp_json, overwrite=True)
+
+        # Confirm that the file was uploaded successfully by printing the URL to the file
+        print(f'File uploaded successfully to: {blob_client.url}')
+
+    except Exception as e:
+        print(f'Error uploading file to Azure Storage: {e}')
+        exit() # Exit the program
 
 """
     This function authenticates to the Wyze API.
@@ -190,8 +219,13 @@ def main(storage_option, zip_code):
         write_to_s3_bucket(AWS_ACCESS_KEY, AWS_SECRET_ACCESS_KEY, BUCKET_NAME, temperature_df)
 
     elif storage_option == 'Azure Blob':
+
+        # Get the Azure Blob Storage connection string from the environment variable
+        conn_string = os.environ.get('ABS_CXN_STR')
+        container_name = os.environ.get('ABS_CONTAINER_NAME')
+
         # Write the temperature data to Azure Blob
-        write_to_azure_blob(temperature_df)
+        write_to_azure_blob(temperature_df, conn_string, container_name )
 
     elif storage_option == 'PostgreSQL':
 

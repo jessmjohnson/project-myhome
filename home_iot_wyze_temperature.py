@@ -5,11 +5,37 @@ import os
 import psycopg2
 import argparse
 import json
+import requests
 
 from wyze_sdk import Client
 from wyze_sdk.errors import WyzeApiError
 from datetime import datetime, timezone
 from botocore.exceptions import NoCredentialsError
+
+
+"""
+This function gets the current temperature and humidity from OpenWeatherMap using the OpenWeatherMap API.
+"""
+def get_openweathermap(openweathermap_api_key, zip_code):
+
+    # Make a GET request to the OpenWeatherMap API
+    response = requests.get(f'https://api.openweathermap.org/data/2.5/weather?zip={zip_code},us&appid={openweathermap_api_key}&units=imperial')
+
+    # Check if the request was successful
+    if response.status_code == 200:
+        # Extract the current weather information
+        data = response.json()
+        current_weather = {
+            'temp_f': data['main']['temp'],
+            'humidity': data['main']['humidity']
+        }
+
+    else:
+        # Print an error message if the request was unsuccessful
+        print(f"Error {response.status_code}: {response.text}")
+        exit() # Exit the program
+
+    return current_weather # Return the current weather information
 
 """
     This function writes the temperature data to a PostgreSQL database.
@@ -31,7 +57,7 @@ def write_to_postgresql(postgres_cxn_str, df_results):
     try:
         # Insert the temperature data into the table
         for index, row in df_results.iterrows():
-            cur.execute("INSERT INTO wyze_temperature (sensor_name, device_id, mac_address, product_model, temperature, humidity, battery_level, is_online, create_dt) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", (row['sensor_name'], row['device_id'], row['mac_address'], row['product_model'], row['temperature'], row['humidity'], row['battery_level'], row['is_online'], row['create_dt']))
+            cur.execute("INSERT INTO wyze_temperature (sensor_name, device_id, mac_address, product_model, temperature, humidity, battery_level, is_online, current_temperature, current_humidity, create_dt) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (row['sensor_name'], row['device_id'], row['mac_address'], row['product_model'], row['temperature'], row['humidity'], row['battery_level'], row['is_online'], row['current_temperature'], row['current_humidity'], row['create_dt']))
 
     except psycopg2.Error as e:
         print(f"Error: Could not insert record into temperature table: {e}")
@@ -132,7 +158,7 @@ def get_wyze_temperatures(client):
     # Return the temperature data
     return temperature_df
 
-def main(storage_option):
+def main(storage_option, zip_code):
 
     # Wyze credentials
     email = os.environ.get('WYZE_USER')
@@ -143,6 +169,16 @@ def main(storage_option):
 
     # Get the temperature data
     temperature_df = get_wyze_temperatures(wyze_client)
+
+    # Get the OpenWeatherMap API key
+    openweathermap_api_key = os.environ.get('OPENWEATHERMAP_API')
+
+    # Get the current weather data
+    current_weather_dict = get_openweathermap(openweathermap_api_key, zip_code)
+
+    # Add 'current_temperature' and 'current_humidity' columns to temperature_df
+    temperature_df['current_temperature'] = current_weather_dict['temp_f']
+    temperature_df['current_humidity'] = current_weather_dict['humidity']
 
     if storage_option == 'AWS S3 Bucket':
         AWS_ACCESS_KEY = os.environ.get('AWS_ACCESS_KEY')
@@ -174,7 +210,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Add the 'output' argument as an optional argument with a default value of 'PostgreSQL'
-    parser.add_argument('--storage', help='The output storage type: AWS S3 Bucket, Azure Blob, PostgreSQL or Print', default='Print', choices=('AWS S3 Bucket', 'Azure Blob', 'PostgreSQL', 'Print'))
+    parser.add_argument('--storage', help='The output storage type: AWS S3, Azure Blob, PostgreSQL or Print', default='Print', choices=('AWS S3', 'Azure Blob', 'PostgreSQL', 'Print'))
+
+    parser.add_argument('--zipcode', help='5 Digit Zip code', default='15212')
 
     # Parse the arguments
     args = parser.parse_args()
@@ -182,7 +220,9 @@ if __name__ == "__main__":
     # Access the 'output-storage' argument value
     storage = args.storage
 
-    # Use the output file path in your script
-    print(f'The output-type is: {storage}')
+    # Access the 'zipcode' argument value
+    zipcode = args.zipcode
 
-    main(storage)
+    # print(f'The output storage type is: {storage}')
+
+    main(storage, zipcode)

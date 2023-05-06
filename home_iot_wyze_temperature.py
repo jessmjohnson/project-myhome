@@ -145,6 +145,45 @@ def wyze_authentication(wyze_email, wyze_password):
         print(f"Got an error: {e}")
         exit() # Exit the program
 
+
+def get_wyze_climate_sensor(client):
+
+
+        #devices = client.devices_list()
+
+        # Get a list of all Room Sensors for Thermostat devices
+        #climate_sensors = [d for d in devices if d.product.model == 'TH3U']
+
+        # TH3U
+        
+        #'WS01C' if r.product.model is None else r.product.model 
+
+    try:
+        devices = client.devices_list()
+    except WyzeApiError as e:
+        pass
+
+    """
+    try:
+        climate_devices = [d for d in devices if hasattr(d, 'product') and d.product.model == 'WYZESENSE']
+        if not climate_devices:
+            print("No climate sensors found")
+        else:
+            device_mac = climate_devices[0].mac
+            try:
+                data = client.get_sensor_reading(device_mac)['data']
+                temperature = data['temperature']
+                humidity = data['humidity']
+                battery = data['battery']
+                print(f"Temperature: {temperature}°C")
+                print(f"Humidity: {humidity}%")
+                print(f"Battery level: {battery}%")
+            except WyzeApiError as e:
+                print(f"Error retrieving sensor data: {e}")
+    except WyzeApiError as e:
+        print(f"Error retrieving device list: {e}")
+    """
+
 """
     This function gets the temperature data from the Wyze API.
 """
@@ -196,6 +235,10 @@ def main(storage_option, zip_code):
     # Get the Wyze API client
     wyze_client = wyze_authentication(email, password)
 
+    get_wyze_climate_sensor(wyze_client)
+ 
+    """
+
     # Get the temperature data
     temperature_df = get_wyze_temperatures(wyze_client)
 
@@ -238,6 +281,7 @@ def main(storage_option, zip_code):
     else:
         # Print the temperature data to the console
         print(temperature_df)
+    """
 
 if __name__ == "__main__":
 

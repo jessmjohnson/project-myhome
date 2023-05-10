@@ -61,6 +61,8 @@ def get_wyze_temperatures(wyze_client: Client, kafka_producer: KafkaProducer, ka
 
 
 if __name__ == '__main__':
+    print("Starting Wyze Room Sensor to Kafka program @ " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+
     # Wyze credentials
     email = os.environ.get('WYZE_USER')
     password = os.environ.get('WYZE_PSWD')
@@ -84,8 +86,12 @@ if __name__ == '__main__':
     topic = 'wyze-room-sensor-temp'
 
     # Get the temperature data from the Wyze Room Sensor
-    try:    
+    try:
         get_wyze_temperatures(wyze_client, producer, topic)
         logging.info("Data published to Kafka.")
     except Exception as e:
         logging.error(f"An error occurred while getting temperature data or publishing to Kafka. Error: {e}")
+        raise SystemExit(1)
+
+    print("Finished Wyze Room Sensor to Kafka program @ " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+    print("Exiting program.")

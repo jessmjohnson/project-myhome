@@ -1,0 +1,32 @@
+FROM arm32v7/ubuntu:latest
+
+# Install required packages
+RUN apt-get update && apt-get install -y wget openjdk-11-jre-headless cron
+
+# Download and extract Kafka
+RUN wget https://downloads.apache.org/kafka/3.4.0/kafka-3.4.0-src.tgz && \
+    tar -xzf kafka-3.4.0-src.tgz && \
+    mv kafka-3.4.0-src /opt/kafka && \
+    rm kafka-3.4.0-src.tgz
+
+# Configure Kafka
+WORKDIR /opt/kafka/config
+RUN sed -i 's/^#listeners=PLAINTEXT:\/\/:9092/listeners=PLAINTEXT:\/\/0.0.0.0:9092/' server.properties \
+    && echo "advertised.listeners=PLAINTEXT://localhost:9092" >> server.properties \
+    && echo "auto.create.topics.enable=true" >> server.properties
+
+# Create Kafka topic
+WORKDIR /opt/kafka/bin
+RUN ./kafka-topics.sh --create --bootstrap-server localhost:2181 --replication-factor 1 --partitions 1 --topic wyze-room-sensor-temp
+
+
+# Create a scripts directory and copy the Python script
+RUN mkdir /scripts
+COPY home_iot_wyze_kafka.py /scripts/home_iot_wyze_kafka.py
+
+# Set up a cron job to run the Python script every 5 minutes
+RUN (crontab -l ; echo "*/5 * * * * /usr/bin/python3 /scripts/home_iot_wyze_kafka.py >> /var/log/cron.log 2>&1") | crontab -
+
+# Start Kafka and Zookeeper services
+CMD /opt/kafka/bin/zookeeper-server-start.sh /opt/kafka/config/zookeeper.properties & \
+    /opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties

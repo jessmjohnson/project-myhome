@@ -1,0 +1,21 @@
+version: '3'
+services:
+  zookeeper:
+    image: 'arm32v7/zookeeper:3.7.0'
+    container_name: zookeeper
+    ports:
+      - '2181:2181'
+    restart: always
+  kafka:
+    build:
+      context: ./kafka
+      dockerfile: Dockerfile.kafka
+    container_name: kafka
+    ports:
+      - '9092:9092'
+    depends_on:
+      - zookeeper
+    environment:
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+    restart: always

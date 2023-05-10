@@ -1,0 +1,23 @@
+FROM arm32v7/openjdk:11-jdk-alpine
+
+ARG KAFKA_VERSION=2.7.0
+ARG SCALA_VERSION=2.13
+
+RUN apk add --no-cache bash curl jq
+
+RUN mkdir -p /opt && \
+    cd /opt && \
+    curl https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz | tar -zx && \
+    mv kafka_${SCALA_VERSION}-${KAFKA_VERSION} kafka
+
+ENV KAFKA_HOME=/opt/kafka
+
+ENV PATH=$PATH:$KAFKA_HOME/bin
+
+WORKDIR $KAFKA_HOME
+
+COPY start-kafka.sh /usr/bin/start-kafka.sh
+
+RUN chmod +x /usr/bin/start-kafka.sh
+
+CMD ["start-kafka.sh"]

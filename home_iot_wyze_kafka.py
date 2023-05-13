@@ -34,9 +34,9 @@ def publish_motion_sensor_data(kafka_producer, kafka_topic, sensor_data):
         kafka_producer.send(kafka_topic, sensor_data_bytes)
         kafka_producer.flush()
         
-        logger.info("Motion sensor data published successfully")
+        logging.info("Motion sensor data published successfully")
     except Exception as e:
-        logger.error("Failed to publish motion sensor data to Kafka: %s", str(e))
+        logging.error("Failed to publish motion sensor data to Kafka: %s", str(e))
 
 def collect_motion_sensor_data(wyze_client, kafka_producers, kafka_topic):
     """Collects motion sensor data using Wyze-SDK."""
@@ -49,9 +49,9 @@ def collect_motion_sensor_data(wyze_client, kafka_producers, kafka_topic):
             sensor_data = sensor.info
             publish_motion_sensor_data(KafkaProducer, kafka_topic,  sensor_data)
         
-        logger.info("Motion sensor data collection completed")
+        logging.info("Motion sensor data collection completed")
     except Exception as e:
-        logger.error("Failed to collect motion sensor data: %s", str(e))
+        logging.error("Failed to collect motion sensor data: %s", str(e))
 
 
 """
@@ -126,8 +126,5 @@ if __name__ == '__main__':
         logging.error(f"An error occurred while getting temperature data or publishing to Kafka. Error: {e}")
         raise SystemExit(1)
         
-    # Logout from Wyze account
-    wyze_client.logout()
-
-    print("Finished Wyze Room Sensor to Kafka program @ " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+    print("Finished Wyze Sensor Collection to Kafka program @ " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
     print("Exiting program.")

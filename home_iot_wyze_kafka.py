@@ -23,20 +23,8 @@ def wyze_authentication(wyze_email: str, wyze_password: str) -> Client:
         logging.error(f"Failed to authenticate to Wyze API. Error: {e}")
         raise SystemExit(1)
 
-import logging
-from kafka import KafkaProducer
-from wyze_sdk import Client
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Configure Kafka
-kafka_bootstrap_servers = 'localhost:9092'
-kafka_topic = 'wyze_motion_sensor_data'
-kafka_producer = KafkaProducer(bootstrap_servers=kafka_bootstrap_servers)
-
-def publish_motion_sensor_data(sensor_data):
+def publish_motion_sensor_data(kafka_producer, kafka_topic, sensor_data):
     """Publishes the motion sensor data to Kafka topic."""
     try:
         # Convert sensor data to bytes
@@ -50,30 +38,20 @@ def publish_motion_sensor_data(sensor_data):
     except Exception as e:
         logger.error("Failed to publish motion sensor data to Kafka: %s", str(e))
 
-def collect_motion_sensor_data():
+def collect_motion_sensor_data(wyze_client, kafka_producers, kafka_topic):
     """Collects motion sensor data using Wyze-SDK."""
     try:
-        # Login to Wyze account
-        wyze_client.login(username='your_username', password='your_password')
-        
         # Get list of motion sensors
         sensors = wyze_client.devices_list_by_category('MotionSensor')
         
         # Collect motion sensor data
         for sensor in sensors:
             sensor_data = sensor.info
-            publish_motion_sensor_data(sensor_data)
-        
-        # Logout from Wyze account
-        wyze_client.logout()
+            publish_motion_sensor_data(KafkaProducer, kafka_topic,  sensor_data)
         
         logger.info("Motion sensor data collection completed")
     except Exception as e:
         logger.error("Failed to collect motion sensor data: %s", str(e))
-
-if __name__ == '__main__':
-    collect_motion_sensor_data()
-
 
 
 """
@@ -136,15 +114,20 @@ if __name__ == '__main__':
         raise SystemExit(1)
 
     # Define the topic to publish to
-    topic = 'wyze-room-sensor-temp'
+    temp_topic = 'wyze-room-sensor-temp'
+    motion_topic = 'wyze-motion-sensor'
 
     # Get the temperature data from the Wyze Room Sensor
     try:
-        get_wyze_temperatures(wyze_client, producer, topic)
+        get_wyze_temperatures(wyze_client, producer, temp_topic)
+        collect_motion_sensor_data(wyze_client, producer, motion_topic)
         logging.info("Data published to Kafka.")
     except Exception as e:
         logging.error(f"An error occurred while getting temperature data or publishing to Kafka. Error: {e}")
         raise SystemExit(1)
+        
+    # Logout from Wyze account
+    wyze_client.logout()
 
     print("Finished Wyze Room Sensor to Kafka program @ " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
     print("Exiting program.")

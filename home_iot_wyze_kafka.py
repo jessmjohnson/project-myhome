@@ -23,6 +23,59 @@ def wyze_authentication(wyze_email: str, wyze_password: str) -> Client:
         logging.error(f"Failed to authenticate to Wyze API. Error: {e}")
         raise SystemExit(1)
 
+import logging
+from kafka import KafkaProducer
+from wyze_sdk import Client
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Configure Kafka
+kafka_bootstrap_servers = 'localhost:9092'
+kafka_topic = 'wyze_motion_sensor_data'
+kafka_producer = KafkaProducer(bootstrap_servers=kafka_bootstrap_servers)
+
+def publish_motion_sensor_data(sensor_data):
+    """Publishes the motion sensor data to Kafka topic."""
+    try:
+        # Convert sensor data to bytes
+        sensor_data_bytes = str(sensor_data).encode('utf-8')
+        
+        # Publish data to Kafka topic
+        kafka_producer.send(kafka_topic, sensor_data_bytes)
+        kafka_producer.flush()
+        
+        logger.info("Motion sensor data published successfully")
+    except Exception as e:
+        logger.error("Failed to publish motion sensor data to Kafka: %s", str(e))
+
+def collect_motion_sensor_data():
+    """Collects motion sensor data using Wyze-SDK."""
+    try:
+        # Login to Wyze account
+        wyze_client.login(username='your_username', password='your_password')
+        
+        # Get list of motion sensors
+        sensors = wyze_client.devices_list_by_category('MotionSensor')
+        
+        # Collect motion sensor data
+        for sensor in sensors:
+            sensor_data = sensor.info
+            publish_motion_sensor_data(sensor_data)
+        
+        # Logout from Wyze account
+        wyze_client.logout()
+        
+        logger.info("Motion sensor data collection completed")
+    except Exception as e:
+        logger.error("Failed to collect motion sensor data: %s", str(e))
+
+if __name__ == '__main__':
+    collect_motion_sensor_data()
+
+
+
 """
 This function gets the temperature data from the Wyze API.
 """
